@@ -156,7 +156,7 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 
 class ATTEEGNet(nn.Module):
-    def __init__(self, num_channels=20, num_classes=1, samples=128, num_heads=4):
+    def __init__(self, num_channels=20, num_classes=1, samples=128, num_heads=8):
         super(ATTEEGNet, self).__init__()
         
         # First Conv Layer
@@ -170,7 +170,7 @@ class ATTEEGNet(nn.Module):
         self.dropout1 = nn.Dropout(0.25)
         
         # Multi-Head Attention Layer (Temporal)
-        self.mha = nn.MultiheadAttention(embed_dim=4000, num_heads=num_heads, batch_first=True)
+        self.mha = nn.MultiheadAttention(embed_dim=32, num_heads=num_heads, batch_first=True)
 
         # Separable Conv Layer
         self.separableConv = nn.Sequential(
@@ -192,12 +192,19 @@ class ATTEEGNet(nn.Module):
         x = self.activation(x)
         x = F.avg_pool2d(x, (1, 4))
         x = self.dropout1(x)
-
-        # Apply temporal attention using MHA
         batch_size, channels, height, width = x.size()
-        x = x.permute(0, 2, 1, 3).reshape(batch_size, height, width * channels)  # Sequence: height
+        # print(x.shape)
+        # Reshape to have width (sequence length) and height * channels (features)
+        x = x.permute(0, 3, 1, 2).reshape(batch_size, width, height * channels)  # Sequence: width
+        # print("Shape before MHA:", x.shape)  # Expected: [batch_size, width, height * channels]
+
+        # Apply MHA, setting embed_dim to height * channels in the MHA layer
         x, self.attn_weights = self.mha(x, x, x)
-        x = x.view(batch_size, height, channels, width).permute(0, 2, 1, 3)
+        # print("Shape after MHA:", x.shape)  # Expected: [batch_size, width, height * channels]
+
+# Reshape back to original format for the next layers
+        x = x.view(batch_size, width, channels, height).permute(0, 2, 3, 1)
+        # print(x.shape)
 
         x = self.separableConv(x)
         x = F.avg_pool2d(x, (1, 8))
