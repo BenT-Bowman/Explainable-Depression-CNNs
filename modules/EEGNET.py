@@ -25,49 +25,7 @@ class MHA(nn.Module):
         x = x.view(shape[0], 1, shape[1], shape[2])
         return x
     
-class ChannelAttention(nn.Module):
-    def __init__(self, in_channels, reduction=8):
-        super(ChannelAttention, self).__init__()
-        self.fc1 = nn.Linear(in_channels, in_channels // reduction)
-        self.fc2 = nn.Linear(in_channels // reduction, in_channels)
 
-    def forward(self, x):
-        # Global Average Pooling
-        avg_out = torch.mean(x, dim=(2, 3), keepdim=False)
-        
-        # Fully Connected Layers
-        attention = F.relu(self.fc1(avg_out))
-        attention = torch.sigmoid(self.fc2(attention))
-        
-        # Reshape and apply attention
-        attention = attention.unsqueeze(2).unsqueeze(3)  # Reshape for broadcasting
-        return x * attention  # Apply attention weights
-
-
-class SpatialAttention(nn.Module):
-    def __init__(self, kernel_size=7):
-        super(SpatialAttention, self).__init__()
-        self.conv = nn.Conv2d(2, 1, kernel_size=kernel_size, padding=(kernel_size - 1) // 2, bias=False)
-        self.sigmoid = nn.Sigmoid()
-
-    def forward(self, x):
-        avg_out = torch.mean(x, dim=1, keepdim=True)
-        max_out, _ = torch.max(x, dim=1, keepdim=True)
-        x = torch.cat([avg_out, max_out], dim=1)
-        x = self.conv(x)
-        return self.sigmoid(x) * x
-
-
-class CBAM(nn.Module):
-    def __init__(self, in_channels, reduction=8, kernel_size=7):
-        super(CBAM, self).__init__()
-        self.channel_attention = ChannelAttention(in_channels, reduction)
-        self.spatial_attention = SpatialAttention(kernel_size)
-
-    def forward(self, x):
-        x = self.channel_attention(x)
-        x = self.spatial_attention(x)
-        return x
 
 class SelfAttention(nn.Module):
     def __init__(self, in_channels, k=8):
@@ -90,19 +48,6 @@ class SelfAttention(nn.Module):
         out = out.view(batch_size, channels, width, height)  # B x C x W x H
 
         return out + x  # Residual connection
-
-class TemporalAttention(nn.Module):
-    def __init__(self, in_features, time_steps):
-        super(TemporalAttention, self).__init__()
-        self.fc = nn.Linear(in_features, 1)
-
-    def forward(self, x):
-        # x: [batch_size, channels, time_steps, features]
-        weights = torch.tanh(self.fc(x)).squeeze(-1)  # Get attention scores
-        weights = F.softmax(weights, dim=-1)  # Normalize across time steps
-        attention = weights.unsqueeze(-1) * x  # Apply attention across time
-        return attention.sum(dim=-2)  # Aggregate over time steps
-
 
 
 
@@ -190,22 +135,21 @@ class ATTEEGNet(nn.Module):
         x = self.depthwiseConv(x)
         x = self.batchnorm2(x)
         x = self.activation(x)
-        x = F.avg_pool2d(x, (1, 4))
         x = self.dropout1(x)
         batch_size, channels, height, width = x.size()
-        # print(x.shape)
         # Reshape to have width (sequence length) and height * channels (features)
         x = x.permute(0, 3, 1, 2).reshape(batch_size, width, height * channels)  # Sequence: width
-        # print("Shape before MHA:", x.shape)  # Expected: [batch_size, width, height * channels]
 
         # Apply MHA, setting embed_dim to height * channels in the MHA layer
         x, self.attn_weights = self.mha(x, x, x)
-        # print("Shape after MHA:", x.shape)  # Expected: [batch_size, width, height * channels]
+        
 
-# Reshape back to original format for the next layers
+        # Reshape back to original format for the next layers
         x = x.view(batch_size, width, channels, height).permute(0, 2, 3, 1)
         # print(x.shape)
 
+        x = F.avg_pool2d(x, (1, 4))
+        # print(x.shape)
         x = self.separableConv(x)
         x = F.avg_pool2d(x, (1, 8))
         x = self.flatten(x)
