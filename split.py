@@ -4,20 +4,84 @@ from tqdm import tqdm
 import argparse
 import re
 import mne
-
+from random import randint
 ##
 # Utility Functions
 ##
-def sliding_window(full_signal: np.ndarray, window: int = 1000, features: int = 20, original_length: int = 76800, skip: int = 250):
-    # assert full_signal.shape == (features, original_length)
+def sliding_window(full_signal: list, window: int = 1000, features: int = 20, original_length: int = 76800, skip: int = 250):
+    """
+    Generates overlapping subarrays (windows) from the input signal data, moving by a specified step size.
+
+    Parameters:
+    -----------
+    full_signal : list
+        The individual input signals with dimensions assumed to be [features, length].
+    window : int, default=1000
+        The length of each window (number of time points in each segment).
+    features : int, default=20
+        The number of feature channels in each window.
+    original_length : int, default=76800
+        The original length of the input signal for reference, although not used directly within the function.
+    skip : int, default=250
+        The step size (in time points) to slide the window by in each iteration, controlling the degree of overlap.
+
+    Yields:
+    -------
+    np.ndarray
+        A window of the signal data with shape (features, window).
+
+    Notes:
+    ------
+    - If the generated window has a shape other than (features, window), iteration stops.
+    - This approach allows efficient extraction of overlapping windows from multichannel time series data.
+
+    Example:
+    --------
+    ```
+    signal = np.random.rand(20, 80000)  # 20 channels, 80000 time points
+    windows = list(sliding_window(signal, window=1000, skip=250))
+    ```
+    """
     for idx in range(0, len(full_signal[-1]), skip):
-        signal = full_signal[:, idx:idx+window]
-        # print(signal.shape)
+        signal = full_signal[:20, idx:idx+window] # <- Crazy insidious bug :)
         if signal.shape != (features, window):
             break
         yield signal
 
-def full(data: np.ndarray, **kwargs) -> np.ndarray:
+def full(data: list, **kwargs) -> np.ndarray:
+    """
+    Applies a sliding window function to each signal in a list of signals, aggregating all windows into a single array.
+
+    Parameters:
+    -----------
+    data : list
+        A list of input signals, where each signal is expected to be an ndarray with dimensions 
+        (features, length).
+    **kwargs
+        Additional keyword arguments passed to the `sliding_window` function, allowing customization 
+        of window size, step size, and other parameters.
+
+    Returns:
+    --------
+    np.ndarray
+        An array containing all windows generated from each signal in the input list. The shape of 
+        the output array is (num_windows, features, window_size), where `num_windows` depends on the 
+        length and overlap of each signal.
+
+    Notes:
+    ------
+    - This function uses `tqdm` to display a progress bar, indicating the progress of processing 
+      multiple signals.
+    - The `sliding_window` function is applied individually to each signal, producing overlapping 
+      windows for each one, which are then collected in a list and converted to an ndarray.
+
+    Example:
+    --------
+    ```
+    from tqdm import tqdm
+    windows = full(data_list, window=1000, skip=250)
+    ```
+    """
     temp = []
     for signal in tqdm(data):
         for result_window in sliding_window(signal, **kwargs):
@@ -25,21 +89,11 @@ def full(data: np.ndarray, **kwargs) -> np.ndarray:
 
     return np.asarray(temp)
 
-def scale(data: np.ndarray)->np.ndarray:
-    data_array = []
-    compare = 0.04
-    for signal in tqdm(data):
-        if signal.max() > compare or abs(signal.min()) > compare:
-            continue
-        data_array.append(signal)
-    data_array = np.asarray(data_array)
-    print(data_array.mean(), data_array.std(), data_array.shape)
-    return data_array
+def norm(arr: np.ndarray):
+    min_vals = np.min(arr, axis=(1, 2))
+    max_vals = np.max(arr, axis=(1, 2))
 
-def scale_neg_one(data: np.ndarray)->np.ndarray:
-    """Rescale data """
-    data = data - data.min()
-    return (data / data.max()) * 2 -1
+    return (arr - min_vals[:, None, None]) / (max_vals - min_vals)[:, None, None] * 2 - 1
 
 ##
 # Main
@@ -94,16 +148,35 @@ def main():
             data = raw.get_data()
             patient.append(data)
             print(data.shape)
-    print(len(control))
-    control = full(control, skip=skip, window=seq_length)
-    patient = full(patient, skip=skip, window=seq_length)
-    # print(control[0])
-    # patient = scale_neg_one(scale(patient))
-    # np.save(fr'{save_file_directory}/patient',patient )
-    np.save(fr'{save_file_directory}/mdd_control',control )
-    np.save(fr'{save_file_directory}/mdd_patient',patient )
+    print(len(control), len(patient))
+
+    k = 5
+    patient_validation_index = np.random.choice(range(0, len(patient)), size=k, replace=False)
+    control_validation_index = np.random.choice(range(0, len(control)), size=k, replace=False)
+    patient_validation = [patient[idx] for idx in patient_validation_index]
+    control_validation = [control[idx] for idx in control_validation_index]
+    patient = [patient[i] for i in range(0, len(patient)) if i not in patient_validation_index]
+    control = [control[i] for i in range(0, len(control)) if i not in control_validation_index]
+
+    print(len(control), control[0].shape, len(patient), patient[0].shape)
+    print(len(control_validation), control_validation[0].shape, len(patient_validation), patient_validation[0].shape)
+
+    
+    patient = norm(full(patient, skip=skip, window=seq_length))
+    control = norm(full(control, skip=skip, window=seq_length))
+    patient_validation = norm(full(patient_validation, skip=skip, window=seq_length))
+    control_validation = norm(full(control_validation, skip=skip, window=seq_length))
+
+
+    np.save(fr'{save_file_directory}/Main/mdd_control', control )
+    np.save(fr'{save_file_directory}/Main/mdd_patient', patient )
+    np.save(fr'{save_file_directory}/Validation/mdd_control', control_validation )
+    np.save(fr'{save_file_directory}/Validation/mdd_patient', patient_validation )
+
     print("Finished: ",control.shape)
     print("Finished: ",patient.shape)
+    print("Finished: ",control_validation.shape)
+    print("Finished: ",patient_validation.shape)
 
 
 
