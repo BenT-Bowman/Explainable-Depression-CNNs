@@ -7,10 +7,13 @@ from tqdm import tqdm
 import argparse
 import numpy as np
 
-from modules.EEGNET import EEGNet, ATTEEGNet
+from modules.EEGNET import EEGNet #, ATTEEGNet
+from modules.Att_EEGNET import ATTEEGNet
 from sklearn.metrics import accuracy_score
 
+import os
 import matplotlib.pyplot as plt
+
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -25,17 +28,20 @@ def argparse_helper():
     return args.model_type, args.num_epochs, args.data_path, args.lr
 
 # Yes I am lazy, how did you know?
-saving_model = None
+save_dir = "saved_models"
+if not os.path.exists(save_dir):
+    os.makedirs(save_dir)
 last_loss = np.inf
 since_last = 0
 
-def early_stop(model, val_loss, patience):
-    global saving_model
+def early_stop(model, val_loss, patience, model_name="best_model.pth"):
     global last_loss
     global since_last
+    model_path = os.path.join(save_dir, model_name)
+    
     if val_loss < last_loss:
         last_loss = val_loss
-        saving_model = model
+        torch.save(model.state_dict(), model_path)
         since_last = 0
     else:
         print(f"Hasn't improved in {since_last}")
@@ -79,45 +85,43 @@ elif str(model_type).upper() == "ATT_EEGNET":
 else:
     raise ValueError("Invalid model type")
 
-control = np.load(r'new_data\mdd_control.npy')
-patient = np.load(r'new_data\mdd_patient.npy')
 
-total_samples = patient.shape[0]
+# TODO: Fix Dataloaders
 
-# Select 9130 random indices
-random_indices = np.random.choice(total_samples, size=9130, replace=False)
+# patient = np.load(r'Leave_one_subject_out\Main\mdd_patient.py')
 
-# Select the corresponding data
-patient = patient[random_indices, :, :]
-print(control.shape, patient.shape)
+def organize_and_label(path: str, label: int):
+    data = np.load(path)
+    tensor = torch.from_numpy(data).float()
+    labels = torch.from_numpy(np.full(data.shape[0], label))
+    return tensor, labels
 
-control = torch.from_numpy(control).float()
-patient = torch.from_numpy(patient).float()
+# control = organize_and_label(r'Leave_one_subject_out\Main\mdd_control.py')
+# patient = organize_and_label(r'Leave_one_subject_out\Main\mdd_patient.py')
+# val_control = organize_and_label(r'Leave_one_subject_out\Main\mdd_control.py')
+# val_patient = organize_and_label(r'Leave_one_subject_out\Main\mdd_patient.py')
 
-control_labels = torch.from_numpy(np.full(control.shape[0], 0))
-patient_labels = torch.from_numpy(np.full(patient.shape[0], 1))
+datasets = []
 
-dataset = torch.cat((control, patient), dim=0)
-dataset = dataset.view(dataset.size(0), 1, dataset.size(1), dataset.size(2))
-labels = torch.cat((control_labels, patient_labels), dim=0)
-labels = labels.view(labels.size(0)).type(torch.float32)
-dataset = TensorDataset(dataset, labels)
+for group in [(r'Leave_one_subject_out\Main\mdd_control.npy', r'Leave_one_subject_out\Main\mdd_patient.npy'),
+              (r'Leave_one_subject_out\Validation\mdd_control.npy', r'Leave_one_subject_out\Validation\mdd_patient.npy')]:
+    dataset = []
+    labels = []
+    for idx, path in enumerate(group):
+        data, label = organize_and_label(path, idx)
+        dataset.append(data)
+        labels.append(label)
+    labels = torch.cat((labels[0], labels[1]), dim=0)
+    labels = labels.view(labels.size(0)).type(torch.float32)
+    dataset = torch.cat(dataset, dim=0)
+    dataset = dataset.view(dataset.size(0), 1, dataset.size(1), dataset.size(2))
 
-# Being Economical :) 
-del labels
-del control
-del control_labels
-del patient
-del patient_labels
-
-validation_size = int(len(dataset) * 0.2)
-train_size = len(dataset) - validation_size
-
-train_dataset, validation_dataset = torch.utils.data.random_split(dataset, [train_size, validation_size])
-
-batch_size = 64
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-validation_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=False)
+    dataset = TensorDataset(dataset, labels)
+    datasets.append(dataset)
+# print(type(datasets[0]),"\n"*2, datasets[0])
+batch_size = 128
+train_loader = DataLoader(dataset=datasets[0], batch_size=batch_size, shuffle=True)
+validation_loader = DataLoader(dataset=datasets[1], batch_size=batch_size, shuffle=True)
 
 
 optimizer  = optim.Adam(model.parameters(), lr=1e-5)
@@ -127,6 +131,15 @@ history_train = []
 history_val = []
 
 
+attn_weights_list = []
+def save_attn_weights(module, input, output):
+    try:
+        attn_weights_list.append(module.transformer.layers[0].attn_weights)
+        attn_weights_list.append(module.transformer.layers[1].attn_weights)
+    except Exception as e:
+        ...
+
+model.register_forward_hook(save_attn_weights)
 
 
 for epoch in range(num_epochs):
@@ -138,6 +151,8 @@ for epoch in range(num_epochs):
     correct = 0
     total_batches = 0
     for batch_idx, (images, labels) in enumerate(pbar):
+        attn_weights_list = []
+
         images = images.to(device)
         labels = labels.to(device)
 
@@ -153,23 +168,13 @@ for epoch in range(num_epochs):
         total_batches += 1
         pbar.set_description(f"Epoch {epoch+1}, Running Loss: {running_loss / (batch_idx + 1):.4f}")
 
-       
-        # # Check gradients
-        # for param in model.parameters():
-            # if param.grad is not None:
-            #     if torch.isnan(param.grad).any() or torch.isinf(param.grad).any():
-            #         raise ValueError("NaN or infinity detected in the gradients")
-            # else:
-            #     print("NONE")
-        # show(model)
-
     model.eval()  # Set the model to evaluation mode
     val_loss = 0.0
     correct = 0
     total = 0
     
     with torch.no_grad(): 
-        for images, labels in validation_loader:
+        for images, labels in tqdm(validation_loader, desc="Validation", leave=False):
             images = images.to(device)
             labels = labels.to(device)
             
@@ -178,22 +183,23 @@ for epoch in range(num_epochs):
             loss = criterion(preds, labels)
             
             val_loss += loss.item()
-
             predicted = (preds >= 0.5).float()
             correct += (predicted == labels).sum().item()
             total += labels.size(0)
-        
 
-        # for i in range(5):
-        #     model.visualize_attention(0)
-            
+            attn_weights_list = []    
+            # print(torch.cuda.memory_summary(device=None, abbreviated=False))
+        
     # Calculate average validation loss and accuracy
     val_loss /= len(validation_loader)
     val_acc = correct / total
     history_val.append(val_loss)
-    if early_stop(model, val_loss, 5):
+    if early_stop(model, val_loss, 50):
         break
-    
+
+    del preds, loss, predicted
+    torch.cuda.empty_cache()
+
     print(f"Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_acc:.4f}")
 
 
@@ -201,4 +207,4 @@ plt.plot(history_val)
 plt.show()
 
 
-torch.save(saving_model, f"{input('Model Name: ')}.pth")
+# torch.save(saving_model, f"{input('Model Name: ')}.pth")

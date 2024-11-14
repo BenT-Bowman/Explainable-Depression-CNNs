@@ -2,7 +2,24 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import sys
+import math
 
+class PositionalEncoding(nn.Module):
+    def __init__(self, d_model, max_len=5000):
+        super(PositionalEncoding, self).__init__()
+        # Create a matrix of shape (max_len, d_model)
+        pe = torch.zeros(max_len, d_model)
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        pe[:, 0::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        pe = pe.unsqueeze(0).transpose(0, 1)  # Shape (max_len, 1, d_model)
+        self.register_buffer('pe', pe)
+
+    def forward(self, x):
+        # Add positional encoding to the input embeddings
+        return x + self.pe[:x.size(0), :]
+    
 class TransformerEncoderLayerWithAttn(nn.TransformerEncoderLayer):
     def __init__(self, d_model, nhead, **kwargs):
         super().__init__(d_model, nhead, **kwargs)
@@ -44,6 +61,7 @@ class ATTEEGNet(nn.Module):
         # Multi-Head Attention Layer (Temporal)
         # self.mha = nn.MultiheadAttention(embed_dim=32, num_heads=num_heads, batch_first=True)
         self.transformer = nn.TransformerEncoder(TransformerEncoderLayerWithAttn(32, num_heads, batch_first=True), 2)
+        self.pos_encoder = PositionalEncoding(32, 501)
 
         # Separable Conv Layer
         self.separableConv = nn.Sequential(
@@ -69,6 +87,7 @@ class ATTEEGNet(nn.Module):
         # Transformer
         batch_size, channels, height, width = x.size()
         x = x.permute(0, 3, 1, 2).reshape(batch_size, width, height * channels)
+        # x = self.pos_encoder(x)
         x = self.transformer(x)
         x = x.view(batch_size, width, channels, height).permute(0, 2, 3, 1)
 
