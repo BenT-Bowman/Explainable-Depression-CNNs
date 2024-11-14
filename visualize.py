@@ -7,6 +7,7 @@ from modules.Att_EEGNET import ATTEEGNet
 from random import randint
 import seaborn as sns
 from matplotlib.widgets import Slider
+
 def plot_attention_on_raw_series(raw_input_data, attn_weights):
     """
     Plot raw time-series data with an interactive overlay of attention weights.
@@ -67,10 +68,12 @@ def plot_attention_on_raw_series(raw_input_data, attn_weights):
 attn_weights_list = []
 def save_attn_weights(module, input, output):
     attn_weights_list.append((module.transformer.layers[0].attn_weights, module.transformer.layers[1].attn_weights))
-    # attn_weights_list.append()
 
-model_path = r'EEGNet_transformer.pth'  # Replace with the actual path
-model = torch.load(model_path).cuda()
+model_path = r'saved_models\best_model.pth'  # Replace with the actual path
+state_dict = torch.load(model_path)
+model = ATTEEGNet()
+model.load_state_dict(state_dict)
+model = model.cuda()
 
 
 model.register_forward_hook(save_attn_weights)
@@ -89,48 +92,3 @@ print(torch.from_numpy(attn_weights).unique())
 print("Attention Weights Shape:", attn_weights.shape)
 attn_weights_np = attn_weights.cpu().numpy() if isinstance(attn_weights, torch.Tensor) else attn_weights
 plot_attention_on_raw_series(x_og, attn_weights)
-
-
-
-# # Plot the heatmap
-# plt.figure(figsize=(10, 8))
-# sns.heatmap(attn_weights_np, cmap="viridis", cbar=True)
-# plt.title("Attention Heatmap")
-# plt.xlabel("Sequence Position")
-# plt.ylabel("Sequence Position")
-# plt.show()
-# exit()
-# print(attn_weights)
-
-# If `width` was meant to be >1 and it's coming out as 1, check MHA input dimensions
-# if attn_weights.shape[-2] == 1 or attn_weights.shape[-1] == 1:
-#     print("Sequence length in MHA is 1; cannot create a meaningful heatmap.")
-# else:
-#     avg_attn_weights = attn_weights.mean(axis=1)  # Average across heads
-#     print("Averaged Attention Weights Shape:", avg_attn_weights.shape)
-#     sns.heatmap(avg_attn_weights[0], cmap="viridis")
-#     plt.title("Attention Map")
-#     plt.xlabel("Sequence Position")
-#     plt.ylabel("Sequence Position")
-#     plt.show()
-
-# import torch.nn.functional as F
-
-# # Assuming original_length is the original input's length
-# original_length = 500
-# attn_weights_resized = F.interpolate(torch.tensor(attn_weights).unsqueeze(0).unsqueeze(0), size=(original_length, original_length), mode='bilinear').squeeze()
-# # print(attn_weights_resized.shape)
-
-# # Retrieve the attention weights
-# # attn_weights_resized = model.attn_weights.detach().cpu().numpy()  # Shape: (batch_size, num_heads, height, height)
-# # np.set_printoptions(threshold=np.inf, linewidth=np.inf)
-# print("Attention Weights Shape:", attn_weights_resized.shape)
-# attn_weights_resized_np = attn_weights_resized.cpu().numpy() if isinstance(attn_weights_resized, torch.Tensor) else attn_weights_resized
-
-# # Plot the heatmap
-# plt.figure(figsize=(10, 8))
-# sns.heatmap(attn_weights_resized_np, cmap="viridis", cbar=True)
-# plt.title("Attention Heatmap")
-# plt.xlabel("Sequence Position")
-# plt.ylabel("Sequence Position")
-# plt.show()
