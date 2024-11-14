@@ -1,3 +1,7 @@
 clipped_data/
 data/
 new_data/
+saved_models/
+Leave_one_subject_out/
+extra_samples/
+cwt_data/
