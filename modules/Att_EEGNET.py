@@ -49,7 +49,7 @@ class ATTEEGNet(nn.Module):
         super(ATTEEGNet, self).__init__()
         
         # First Conv Layer
-        self.conv1 = nn.Conv2d(1, 16, (1, 64), padding=(0, 32), bias=False)
+        self.conv1 = nn.Conv2d(1, 16, (3, 1), padding=(3//2, 0), bias=False)
         self.batchnorm1 = nn.BatchNorm2d(16)
         
         # Depthwise Conv Layer
@@ -60,12 +60,12 @@ class ATTEEGNet(nn.Module):
         
         # Multi-Head Attention Layer (Temporal)
         # self.mha = nn.MultiheadAttention(embed_dim=32, num_heads=num_heads, batch_first=True)
-        self.transformer = nn.TransformerEncoder(TransformerEncoderLayerWithAttn(32, num_heads, batch_first=True), 2)
-        self.pos_encoder = PositionalEncoding(32, 501)
+        self.transformer = nn.TransformerEncoder(TransformerEncoderLayerWithAttn(320, num_heads, batch_first=True), 2)
+        # self.pos_encoder = PositionalEncoding(32, 501)
 
         # Separable Conv Layer
         self.separableConv = nn.Sequential(
-            nn.Conv2d(32, 32, (1, 16), groups=32, bias=False, padding=(0, 8)),
+            nn.Conv2d(16, 32, (1, 16), groups=16, bias=False, padding=(0, 8)),
             nn.Conv2d(32, 32, (1, 1), bias=False),
             nn.BatchNorm2d(32),
             nn.ELU(),
@@ -73,21 +73,21 @@ class ATTEEGNet(nn.Module):
         )
         
         self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(480, num_classes)
+        self.fc1 = nn.Linear(9600, num_classes)
 
     def forward(self, x):
         # Feature Extraction
         x = self.conv1(x)
         x = self.batchnorm1(x)
-        x = self.depthwiseConv(x)
-        x = self.batchnorm2(x)
         x = self.activation(x)
-        x = self.dropout1(x)
+        # x = self.depthwiseConv(x)
+        # x = self.batchnorm2(x)
+        # x = self.activation(x)
+        # x = self.dropout1(x)
 
         # Transformer
         batch_size, channels, height, width = x.size()
         x = x.permute(0, 3, 1, 2).reshape(batch_size, width, height * channels)
-        # x = self.pos_encoder(x)
         x = self.transformer(x)
         x = x.view(batch_size, width, channels, height).permute(0, 2, 3, 1)
 
@@ -101,9 +101,10 @@ class ATTEEGNet(nn.Module):
 
         return x
 
-if __name__ == "__main__":    
 
-    model = ATTEEGNet()
+if __name__ == "__main__":    
+    
+    model = ATTEEGNet()# ATTEEGNet()
     input_tensor = torch.randn(100, 1, 20, 500)
     output = model(input_tensor)
     print(output.shape)

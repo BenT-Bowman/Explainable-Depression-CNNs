@@ -194,7 +194,7 @@ for epoch in range(num_epochs):
     val_loss /= len(validation_loader)
     val_acc = correct / total
     history_val.append(val_loss)
-    if early_stop(model, val_loss, 50):
+    if early_stop(model, val_loss, 10):
         break
 
     del preds, loss, predicted
