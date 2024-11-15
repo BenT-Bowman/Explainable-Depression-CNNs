@@ -73,11 +73,13 @@ class EEGNet(nn.Module):
             nn.ELU(),
             nn.Dropout(0.25)
         )
+
+        self.saved_features = None
         
         # Classification Layer
         self.fc1 = nn.Linear(480, num_classes)
 
-    def forward(self, x):
+    def forward(self, x, save_features=False):
         x = self.conv1(x)
         x = self.batchnorm1(x)
         x = self.depthwiseConv(x)
@@ -90,77 +92,86 @@ class EEGNet(nn.Module):
         x = F.avg_pool2d(x, (1, 8))
         
         x = x.view(x.size(0), -1)
+        if save_features:
+            self.saved_features = x
         x = F.sigmoid(self.fc1(x))
         
-        return x
+        if not save_features:
+            return x
+        else:
+            return x, self.saved_features
 
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import matplotlib.pyplot as plt
+# import torch
+# import torch.nn as nn
+# import torch.nn.functional as F
+# import matplotlib.pyplot as plt
 
-class ATTEEGNet(nn.Module):
-    def __init__(self, num_channels=20, num_classes=1, samples=128, num_heads=8):
-        super(ATTEEGNet, self).__init__()
+# class ATTEEGNet(nn.Module):
+#     def __init__(self, num_channels=20, num_classes=1, samples=128, num_heads=8):
+#         super(ATTEEGNet, self).__init__()
         
-        # First Conv Layer
-        self.conv1 = nn.Conv2d(1, 16, (1, 64), padding=(0, 32), bias=False)
-        self.batchnorm1 = nn.BatchNorm2d(16)
+#         # First Conv Layer
+#         self.conv1 = nn.Conv2d(1, 16, (1, 64), padding=(0, 32), bias=False)
+#         self.batchnorm1 = nn.BatchNorm2d(16)
         
-        # Depthwise Conv Layer
-        self.depthwiseConv = nn.Conv2d(16, 32, (num_channels, 1), groups=16, bias=False)
-        self.batchnorm2 = nn.BatchNorm2d(32)
-        self.activation = nn.ELU()
-        self.dropout1 = nn.Dropout(0.25)
+#         # Depthwise Conv Layer
+#         self.depthwiseConv = nn.Conv2d(16, 32, (num_channels, 1), groups=16, bias=False)
+#         self.batchnorm2 = nn.BatchNorm2d(32)
+#         self.activation = nn.ELU()
+#         self.dropout1 = nn.Dropout(0.25)
         
-        # Multi-Head Attention Layer (Temporal)
-        self.mha = nn.MultiheadAttention(embed_dim=32, num_heads=num_heads, batch_first=True)
+#         # Multi-Head Attention Layer (Temporal)
+#         self.mha = nn.MultiheadAttention(embed_dim=32, num_heads=num_heads, batch_first=True)
 
-        # Separable Conv Layer
-        self.separableConv = nn.Sequential(
-            nn.Conv2d(32, 32, (1, 16), groups=32, bias=False, padding=(0, 8)),
-            nn.Conv2d(32, 32, (1, 1), bias=False),
-            nn.BatchNorm2d(32),
-            nn.ELU(),
-            nn.Dropout(0.25)
-        )
+#         # Separable Conv Layer
+#         self.separableConv = nn.Sequential(
+#             nn.Conv2d(32, 32, (1, 16), groups=32, bias=False, padding=(0, 8)),
+#             nn.Conv2d(32, 32, (1, 1), bias=False),
+#             nn.BatchNorm2d(32),
+#             nn.ELU(),
+#             nn.Dropout(0.25)
+#         )
         
-        self.flatten = nn.Flatten()
-        self.fc1 = nn.Linear(480, num_classes)
+#         self.flatten = nn.Flatten()
+#         self.fc1 = nn.Linear(480, num_classes)
 
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.batchnorm1(x)
-        x = self.depthwiseConv(x)
-        x = self.batchnorm2(x)
-        x = self.activation(x)
-        x = self.dropout1(x)
-        batch_size, channels, height, width = x.size()
-        # Reshape to have width (sequence length) and height * channels (features)
-        x = x.permute(0, 3, 1, 2).reshape(batch_size, width, height * channels)  # Sequence: width
+#         self.saved_features = None
 
-        # Apply MHA, setting embed_dim to height * channels in the MHA layer
-        x, self.attn_weights = self.mha(x, x, x)
+#     def forward(self, x, save_features=False):
+#         x = self.conv1(x)
+#         x = self.batchnorm1(x)
+#         x = self.depthwiseConv(x)
+#         x = self.batchnorm2(x)
+#         x = self.activation(x)
+#         x = self.dropout1(x)
+#         batch_size, channels, height, width = x.size()
+#         # Reshape to have width (sequence length) and height * channels (features)
+#         x = x.permute(0, 3, 1, 2).reshape(batch_size, width, height * channels)  # Sequence: width
+
+#         # Apply MHA, setting embed_dim to height * channels in the MHA layer
+#         x, self.attn_weights = self.mha(x, x, x)
         
 
-        # Reshape back to original format for the next layers
-        x = x.view(batch_size, width, channels, height).permute(0, 2, 3, 1)
-        # print(x.shape)
+#         # Reshape back to original format for the next layers
+#         x = x.view(batch_size, width, channels, height).permute(0, 2, 3, 1)
+#         # print(x.shape)
 
-        x = F.avg_pool2d(x, (1, 4))
-        # print(x.shape)
-        x = self.separableConv(x)
-        x = F.avg_pool2d(x, (1, 8))
-        x = self.flatten(x)
-        x = torch.sigmoid(self.fc1(x))
+#         x = F.avg_pool2d(x, (1, 4))
+#         # print(x.shape)
+#         x = self.separableConv(x)
+#         x = F.avg_pool2d(x, (1, 8))
+#         x = self.flatten(x)
+#         if save_features:
+#             self.saved_features = x
+#         x = torch.sigmoid(self.fc1(x))
 
-        return x
+#         return x
 
 
 
 if __name__ == "__main__":    
-    model = ATTEEGNet()
+    model = EEGNet()
     input_tensor = torch.randn(100, 1, 20, 500)
     output = model(input_tensor)
     print(output.shape)

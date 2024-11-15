@@ -75,7 +75,9 @@ class ATTEEGNet(nn.Module):
         self.flatten = nn.Flatten()
         self.fc1 = nn.Linear(480, num_classes)
 
-    def forward(self, x):
+        self.saved_features = None
+
+    def forward(self, x, save_features=False):
         # Feature Extraction
         x = self.conv1(x)
         x = self.batchnorm1(x)
@@ -95,9 +97,19 @@ class ATTEEGNet(nn.Module):
         x = F.avg_pool2d(x, (1, 8))
 
         x = self.flatten(x)
+
+        
+        if save_features:
+            self.saved_features = x
+
+
         x = torch.sigmoid(self.fc1(x))
 
-        return x
+
+        if not save_features:
+            return x
+        else:
+            return x, self.saved_features
 
 if __name__ == "__main__":    
 
