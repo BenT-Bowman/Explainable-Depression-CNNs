@@ -33,7 +33,8 @@ if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 last_loss = np.inf
 since_last = 0
-
+from random import randint
+rand_name = randint(0, 2000)
 def early_stop(model, val_loss, patience, model_name="best_model.pth"):
     global last_loss
     global since_last
@@ -124,7 +125,7 @@ train_loader = DataLoader(dataset=datasets[0], batch_size=batch_size, shuffle=Tr
 validation_loader = DataLoader(dataset=datasets[1], batch_size=batch_size, shuffle=True)
 
 
-optimizer  = optim.Adam(model.parameters(), lr=1e-5)
+optimizer  = optim.Adam(model.parameters(), lr=1e-6)
 criterion = nn.BCEWithLogitsLoss()
 
 history_train = []
@@ -141,6 +142,32 @@ def save_attn_weights(module, input, output):
 
 model.register_forward_hook(save_attn_weights)
 
+import time
+import matplotlib.pyplot as plt
+from matplotlib.widgets import Button
+
+# Global variable to control the pause
+pause_flag = False
+
+def pause_button_callback(event):
+    """Callback function for the button to pause for 5 seconds."""
+    global pause_flag
+    pause_flag = not pause_flag
+
+# Set up Matplotlib figure and button
+fig, ax = plt.subplots()
+plt.subplots_adjust(bottom=0.2)
+
+# Create a button
+ax_button = plt.axes([0.4, 0.05, 0.2, 0.075])
+button = Button(ax_button, "Pause")
+button.on_clicked(pause_button_callback)
+
+# Enable interactive mode
+plt.ion()
+
+# Display the plot
+plt.show()
 
 for epoch in range(num_epochs):
     model.train()
@@ -151,6 +178,9 @@ for epoch in range(num_epochs):
     correct = 0
     total_batches = 0
     for batch_idx, (images, labels) in enumerate(pbar):
+        if pause_flag:
+            time.sleep(5)
+
         attn_weights_list = []
 
         images = images.to(device)
@@ -167,8 +197,8 @@ for epoch in range(num_epochs):
         running_loss += loss.item()
         total_batches += 1
         pbar.set_description(f"Epoch {epoch+1}, Running Loss: {running_loss / (batch_idx + 1):.4f}")
-
-    model.eval()  # Set the model to evaluation mode
+        plt.gcf().canvas.flush_events()
+    model.eval()
     val_loss = 0.0
     correct = 0
     total = 0
@@ -187,14 +217,12 @@ for epoch in range(num_epochs):
             correct += (predicted == labels).sum().item()
             total += labels.size(0)
 
-            attn_weights_list = []    
-            # print(torch.cuda.memory_summary(device=None, abbreviated=False))
-        
+            attn_weights_list = []
     # Calculate average validation loss and accuracy
     val_loss /= len(validation_loader)
     val_acc = correct / total
     history_val.append(val_loss)
-    if early_stop(model, val_loss, 15):
+    if early_stop(model, val_loss, 15, model_name=f"best_model_{rand_name}.pth"):
         break
 
     del preds, loss, predicted

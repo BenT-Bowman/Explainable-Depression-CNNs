@@ -69,7 +69,7 @@ attn_weights_list = []
 def save_attn_weights(module, input, output):
     attn_weights_list.append((module.transformer.layers[0].attn_weights, module.transformer.layers[1].attn_weights))
 
-model_path = r'saved_models\best_model.pth'  # Replace with the actual path
+model_path = r'saved_models\best_model_181.pth'  # Replace with the actual path
 state_dict = torch.load(model_path)
 model = ATTEEGNet()
 model.load_state_dict(state_dict)
@@ -79,7 +79,7 @@ model = model.cuda()
 model.register_forward_hook(save_attn_weights)
 
 
-data = np.load(r'clipped_data\mdd_control.npy')
+data = np.load(r'Leave_one_subject_out\Validation\mdd_control.npy')
 x_og = data[randint(0, len(data))]
 x = torch.tensor(x_og, dtype=torch.float32).unsqueeze(0).unsqueeze(0).cuda()
 # Assuming model is an instance of ATTEEGNet and x is your input tensor
