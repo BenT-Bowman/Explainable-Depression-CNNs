@@ -5,7 +5,7 @@ from tqdm import tqdm  # For progress tracking
 import os
 from PIL import Image
 
-def generate_cwt_image(data, wavelet='cgau8', scales=np.arange(1, 32)):
+def generate_cwt_image(data, wavelet='morl', scales=np.arange(1, 32)):
     coefficients, _ = pywt.cwt(data, scales, wavelet)
     return np.abs(coefficients)
 
@@ -26,7 +26,7 @@ def save_cwt_images(data_list, output_dir="cwt_images"):
     print(f"Saved CWT images to {output_dir} in compressed .npz format")
 
 
-data_list = np.load('./clipped_data/mdd_control.npy')[:,0,:]
+data_list = np.load('./Leave_one_subject_out/Validation/mdd_control.npy')[:,0,:]
 print(data_list.shape)
 save_cwt_images(data_list)
 

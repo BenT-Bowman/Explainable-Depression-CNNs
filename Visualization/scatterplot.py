@@ -107,9 +107,6 @@ tran_labels, trans_features = validation_loop(EEGNet_transformer, validation_loa
 print("base_features", base_features.shape)
 print("tran_features", trans_features.shape)
 
-# base_features = torch.cat(saved_features[str(type(EEGNet_base))], dim=0)
-# trans_features = torch.cat(saved_features[str(type(EEGNet_transformer))], dim=0)
-
 #
 # Dimensionality Reduction
 #
@@ -163,4 +160,4 @@ def display_scatterplot(data, labels):
     plt.show()
 
 display_scatterplot(base_tsne, base_labels)
-display_scatterplot(tran_tsne, tran_labels) 
+display_scatterplot(tran_tsne, tran_labels)
