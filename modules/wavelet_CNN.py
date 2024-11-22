@@ -13,7 +13,7 @@ class CWT_CNN(nn.Module):
         return x
     
 if __name__ == "__main__":
-    t = torch.randn(32, 1, 31, 500)
+    t = torch.randn(32, 1, 99, 500)
     print(t.shape)
     model = CWT_CNN()
     print(model(t).shape)

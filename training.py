@@ -8,7 +8,7 @@ import argparse
 import numpy as np
 
 from modules.EEGNET import EEGNet #, ATTEEGNet
-from modules.Att_EEGNET import ATTEEGNet
+from modules.Att_EEGNET import ATTEEGNet, Transformer_Model
 from sklearn.metrics import accuracy_score
 
 import os
@@ -82,6 +82,8 @@ elif str(model_type).upper() == "ATT_WAVELET":
     pass
 elif str(model_type).upper() == "ATT_EEGNET":
     model = ATTEEGNet().to(device)
+elif str(model_type).upper() == "TRANS_EEGNET":
+    model = Transformer_Model().to(device)
 
 else:
     raise ValueError("Invalid model type")
@@ -125,7 +127,7 @@ train_loader = DataLoader(dataset=datasets[0], batch_size=batch_size, shuffle=Tr
 validation_loader = DataLoader(dataset=datasets[1], batch_size=batch_size, shuffle=True)
 
 
-optimizer  = optim.Adam(model.parameters(), lr=1e-6)
+optimizer  = optim.Adam(model.parameters(), lr=1e-5)
 criterion = nn.BCEWithLogitsLoss()
 
 history_train = []
@@ -232,6 +234,7 @@ for epoch in range(num_epochs):
 
 
 plt.plot(history_val)
+plt.ioff()
 plt.show()
 
 

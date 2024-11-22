@@ -29,7 +29,7 @@ def plot_attention_on_raw_series(raw_input_data, attn_weights):
     
     # Create an initial plot of raw data (all channels) before interaction
     for eeg_channel in raw_input_data:
-        ax.plot(eeg_channel, color="black", alpha=0.7)
+        ax.plot(eeg_channel, alpha=0.7)
     
     # Normalize attention weights for the entire sequence
     def update_plot(val):
@@ -85,7 +85,6 @@ model.register_forward_hook(save_attn_weights)
 data = np.load(r'Leave_one_subject_out\Validation\mdd_control.npy')
 x_og = data[randint(0, len(data))]
 x = torch.tensor(x_og, dtype=torch.float32).unsqueeze(0).unsqueeze(0).cuda()
-# Assuming model is an instance of ATTEEGNet and x is your input tensor
 output = model(x)
 
 # Retrieve the attention weights

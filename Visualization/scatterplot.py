@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import seaborn as sns
 from modules.EEGNET import EEGNet
-from modules.Att_EEGNET import ATTEEGNet
+from modules.Att_EEGNET import ATTEEGNet, Transformer_Model
 from torch.utils.data import TensorDataset, DataLoader
 
 #
@@ -24,7 +24,7 @@ def load_model(model_path: str, model_class, device = "cuda:0"):
     model.load_state_dict(state_dict)
     return model.to(device)
 
-EEGNet_transformer = load_model(r'saved_models\EEGNet_transformer.pth', ATTEEGNet)
+EEGNet_transformer = load_model(r'saved_models\fixed_transformer_best.pth', Transformer_Model)
 EEGNet_base = load_model(r'saved_models\EEGNet_base.pth', EEGNet)
 
 #
@@ -72,6 +72,8 @@ def validation_loop(model, validation_loader, device="cuda:0"):
 
     all_labels = []
     all_features = []
+
+    all_preds = []
         
     with torch.no_grad(): 
         for images, labels in tqdm(validation_loader, desc="Validation", leave=False):
@@ -86,6 +88,8 @@ def validation_loop(model, validation_loader, device="cuda:0"):
             predicted = (preds >= 0.5).float()
             correct += (predicted == labels).sum().item()
             total += labels.size(0)
+
+            all_preds.append(predicted.detach().cpu())
             all_labels.append(labels.detach().cpu().numpy())
             all_features.append(features.detach().cpu())
 
@@ -93,19 +97,24 @@ def validation_loop(model, validation_loader, device="cuda:0"):
     val_loss /= len(validation_loader)
     val_acc = correct / total
     print(type(model), val_acc)
-    for val in all_labels:
-        print(val.shape)
-    return np.concatenate(all_labels), torch.cat(all_features, dim=0).numpy()
+    return np.concatenate(all_labels), torch.cat(all_features, dim=0).numpy(), torch.cat(all_preds, dim=0).numpy()
     
 #
 # Feature Capturing
 #
 
-base_labels, base_features = validation_loop(EEGNet_base, validation_loader)
-tran_labels, trans_features = validation_loop(EEGNet_transformer, validation_loader)
+base_labels, base_features, base_preds = validation_loop(EEGNet_base, validation_loader)
+tran_labels, trans_features, tran_preds = validation_loop(EEGNet_transformer, validation_loader)
+
+print("base_labels", base_labels.shape)
+print("tran_labels", tran_labels.shape)
+
 
 print("base_features", base_features.shape)
 print("tran_features", trans_features.shape)
+
+print("base_preds", base_preds.shape)
+print("tran_preds", tran_preds.shape)
 
 #
 # Dimensionality Reduction
@@ -161,3 +170,6 @@ def display_scatterplot(data, labels):
 
 display_scatterplot(base_tsne, base_labels)
 display_scatterplot(tran_tsne, tran_labels)
+
+display_scatterplot(base_tsne, base_preds)
+display_scatterplot(tran_tsne, tran_preds)
