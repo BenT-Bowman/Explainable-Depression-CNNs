@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import TensorDataset, DataLoader, random_split
+from torch.utils.data import TensorDataset, DataLoader, random_split, ConcatDataset
 import torch.optim as optim
 
 from tqdm import tqdm
@@ -121,18 +121,23 @@ for group in [(r'Leave_one_subject_out\Main\mdd_control.npy', r'Leave_one_subjec
 
     dataset = TensorDataset(dataset, labels)
     datasets.append(dataset)
-# print(type(datasets[0]),"\n"*2, datasets[0])
+
+
+
+
 batch_size = 128
 train_loader = DataLoader(dataset=datasets[0], batch_size=batch_size, shuffle=True)
 validation_loader = DataLoader(dataset=datasets[1], batch_size=batch_size, shuffle=True)
+# train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+# validation_loader = DataLoader(dataset=val_dataset, batch_size=batch_size, shuffle=True)
 
+# exit()
 
 optimizer  = optim.Adam(model.parameters(), lr=1e-5)
 criterion = nn.BCEWithLogitsLoss()
 
 history_train = []
 history_val = []
-
 
 attn_weights_list = []
 def save_attn_weights(module, input, output):

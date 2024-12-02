@@ -10,6 +10,8 @@ import seaborn as sns
 from modules.EEGNET import EEGNet
 from modules.Att_EEGNET import ATTEEGNet, Transformer_Model
 from torch.utils.data import TensorDataset, DataLoader
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+
 
 #
 # Load state_dict and create model
@@ -24,7 +26,7 @@ def load_model(model_path: str, model_class, device = "cuda:0"):
     model.load_state_dict(state_dict)
     return model.to(device)
 
-EEGNet_transformer = load_model(r'saved_models\fixed_transformer_best.pth', Transformer_Model)
+EEGNet_transformer = load_model(r'saved_models\25_a.pth', Transformer_Model)
 EEGNet_base = load_model(r'saved_models\EEGNet_base.pth', EEGNet)
 
 #
@@ -72,19 +74,20 @@ def validation_loop(model, validation_loader, device="cuda:0"):
 
     all_labels = []
     all_features = []
-
     all_preds = []
-        
-    with torch.no_grad(): 
+    
+    with torch.no_grad():
         for images, labels in tqdm(validation_loader, desc="Validation", leave=False):
             images = images.to(device)
             labels = labels.to(device)
             
             preds, features = model(images, save_features=True)
             preds = preds.view(-1)
-            # loss = criterion(preds, labels)s
-            
+
+            # Optional: Calculate loss if you have a criterion
+            # loss = criterion(preds, labels)
             # val_loss += loss.item()
+            
             predicted = (preds >= 0.5).float()
             correct += (predicted == labels).sum().item()
             total += labels.size(0)
@@ -93,11 +96,20 @@ def validation_loop(model, validation_loader, device="cuda:0"):
             all_labels.append(labels.detach().cpu().numpy())
             all_features.append(features.detach().cpu())
 
-    # Calculate average validation loss and accuracy
-    val_loss /= len(validation_loader)
-    val_acc = correct / total
-    print(type(model), val_acc)
-    return np.concatenate(all_labels), torch.cat(all_features, dim=0).numpy(), torch.cat(all_preds, dim=0).numpy()
+    # Calculate metrics after the loop
+    all_preds = torch.cat(all_preds, dim=0).numpy()
+    all_labels = np.concatenate(all_labels, axis=0)
+    print(all_labels.shape)
+    accuracy = accuracy_score(all_labels, all_preds)
+    precision = precision_score(all_labels, all_preds)
+    recall = recall_score(all_labels, all_preds)
+    f1 = f1_score(all_labels, all_preds)
+
+    print(f"Accuracy: {accuracy:.4f}")
+    print(f"Precision: {precision:.4f}")
+    print(f"Recall: {recall:.4f}")
+    print(f"F1 Score: {f1:.4f}")
+    return all_labels, torch.cat(all_features, dim=0).numpy(), all_preds
     
 #
 # Feature Capturing

@@ -22,13 +22,13 @@ selected_positions = np.array([all_positions[name][:2] for name in names if name
 
 pos = []
 
-model_path = r'saved_models\fixed_transformer_best.pth'
+model_path = r'saved_models\25_a.pth'
 state_dict = torch.load(model_path)
 model = Transformer_Model(save_weights=True)
 model.load_state_dict(state_dict)
 model = model.cuda()
 
-data = np.load(r'Leave_one_subject_out\Validation\mdd_patient.npy')
+data = np.load(r'Leave_one_subject_out\Validation\mdd_control.npy')
 x_og = data[randint(0, len(data))]
 x = torch.tensor(x_og, dtype=torch.float32).unsqueeze(0).unsqueeze(0).cuda()
 output = model(x)

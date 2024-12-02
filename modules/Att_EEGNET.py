@@ -188,7 +188,7 @@ class Transformer_Model(nn.Module):
         x = F.avg_pool2d(x, (1, 8))
         return x
 
-    def transformer_path(self, x):
+    def CAEW(self, x):
         """
         Filters are halved
         """
@@ -196,15 +196,18 @@ class Transformer_Model(nn.Module):
         x = self.t_batchnorm1(x)
         x = self.activation(x)
         x = F.avg_pool2d(x, (1,4))
+
         x = self.t_conv2(x)
         x = self.t_batchnorm2(x)
         x = self.dropout2(x)
         x = self.activation(x)
         x = F.avg_pool2d(x, (1,8))
+
         batch_size, filters, channels, seq_length = x.size()
         x = x.permute(0, 2, 1, 3).reshape(batch_size, channels, seq_length * filters)
         x = self.transformer(x)
         x = x.view(batch_size, channels, filters, seq_length).permute(0, 2, 1, 3)
+        
         x = self.t_conv3(x)
         x = self.t_batchnorm3(x)
         x = self.dropout3(x)
@@ -216,7 +219,7 @@ class Transformer_Model(nn.Module):
         return x
     
     def forward(self, x, save_features=False):
-        t_x = self.transformer_path(x)
+        t_x = self.CAEW(x)
         x = t_x*x
         x = self.EEGNet_path(x)
         x = x.view(x.size(0), -1)
