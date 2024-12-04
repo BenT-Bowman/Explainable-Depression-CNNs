@@ -1,10 +1,3 @@
-clipped_data/
 data/
-new_data/
 saved_models/
-Leave_one_subject_out/
-extra_samples/
-cwt_data/
-cwt_loso/
-cwt_images/
-cwt_image/
+train_data/
