@@ -50,7 +50,7 @@ class CAEW_EEGNet(EEGNet):
     def __init__(self, num_heads=8):
         super().__init__()
 
-        self.caew = CAEW()
+        self.caew = CAEW(num_heads=num_heads)
         self.caew_weights = None
     
     def forward(self, x, save_features=False):

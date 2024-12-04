@@ -8,7 +8,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import seaborn as sns
 from modules.EEGNET import EEGNet
-from modules.Att_EEGNET import ATTEEGNet, Transformer_Model
+from modules.Att_EEGNET import ATTEEGNet, Transformer_Model, legacy
 from torch.utils.data import TensorDataset, DataLoader
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
@@ -26,8 +26,8 @@ def load_model(model_path: str, model_class, device = "cuda:0"):
     model.load_state_dict(state_dict)
     return model.to(device)
 
-EEGNet_transformer = load_model(r'saved_models\25_a.pth', Transformer_Model)
-EEGNet_base = load_model(r'saved_models\EEGNet_base.pth', EEGNet)
+EEGNet_transformer = load_model(r'saved_models\12_3_legacy.pth', Transformer_Model)
+EEGNet_base = load_model(r'saved_models\12_3_eegnet.pth', EEGNet)
 
 #
 # Load Validation Data

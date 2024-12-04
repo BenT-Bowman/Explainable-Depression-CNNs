@@ -1,44 +1,49 @@
-from tqdm import tqdm
 import matplotlib.pyplot as plt
-import seaborn as sns
 import torch
 import numpy as np
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-import seaborn as sns
-from modules.EEGNET import EEGNet
-from modules.Att_EEGNET import Transformer_Model
 from torch.utils.data import TensorDataset, DataLoader
+import seaborn as sns
 import mne
 from random import randint
 
+def channel_rep_show(x_og, model, selected_positions): 
+    model.eval()
+    x = torch.tensor(x_og, dtype=torch.float32).unsqueeze(0).unsqueeze(0).cuda()
+    output = model(x)
+    print(output, "="*20)
+    weights = model.saved_weights.detach().cpu().numpy()
 
-names = ['Fp1', 'F3', 'C3', 'P3', 'O1', 'F7', 'T3', 'T5', 'Fz', 'Fp2', 'F4', 'C4', 'P4', 'O2', 'F8', 'T4', 'T6', 'Cz', 'Pz', 'A2']
+    weights = weights.squeeze()
+    weights = weights.ravel()
 
-montage = mne.channels.make_standard_montage('standard_1020')
-all_positions = montage.get_positions()['ch_pos']
-selected_positions = np.array([all_positions[name][:2] for name in names if name in all_positions])
+    print("Reshaped array shape:", weights.shape)
 
-pos = []
+    print(weights)
+    mne.viz.plot_topomap(weights, selected_positions, show=True)
+    
+def find_selected(names = ['Fp1', 'F3', 'C3', 'P3', 'O1', 'F7', 'T3', 'T5', 'Fz', 'Fp2', 'F4', 'C4', 'P4', 'O2', 'F8', 'T4', 'T6', 'Cz', 'Pz', 'A2']):
+    montage = mne.channels.make_standard_montage('standard_1020')
+    all_positions = montage.get_positions()['ch_pos']
+    return np.array([all_positions[name][:2] for name in names if name in all_positions])
 
-model_path = r'saved_models\25_a.pth'
-state_dict = torch.load(model_path)
-model = Transformer_Model(save_weights=True)
-model.load_state_dict(state_dict)
-model = model.cuda()
 
-data = np.load(r'Leave_one_subject_out\Validation\mdd_control.npy')
-x_og = data[randint(0, len(data))]
-x = torch.tensor(x_og, dtype=torch.float32).unsqueeze(0).unsqueeze(0).cuda()
-output = model(x)
+if __name__ == "__main__":
+    import sys
+    import os
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-weights = model.saved_weights.detach().cpu().numpy()
+    from modules.EEGNET import EEGNet
+    from modules.Att_EEGNET import Transformer_Model, legacy
 
-weights = weights.squeeze()
-weights = weights.ravel()
+    selected_positions = find_selected()
+    pos = []
 
-print("Reshaped array shape:", weights.shape)
+    model_path = r'saved_models\CAEW_MLP.pth'
+    state_dict = torch.load(model_path)
+    model = Transformer_Model(save_weights=True)
+    model.load_state_dict(state_dict)
+    model = model.cuda()
 
-print(weights)
-mne.viz.plot_topomap(weights, selected_positions, show=True)
+    data = np.load(r'Leave_one_subject_out_fr\Validation\mdd_patient.npy')
+    x_og = data[randint(0, len(data))]
+    channel_rep_show(x_og, model, selected_positions)
