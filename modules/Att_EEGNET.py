@@ -41,7 +41,7 @@ class TransformerEncoderLayerWithAttn(nn.TransformerEncoderLayer):
         src = self.norm2(src)
         
         # Return output and attention weights
-        return src#, self.attn_weights
+        return src
     
     
 class ATTEEGNet(nn.Module):

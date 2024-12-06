@@ -3,10 +3,15 @@ import torch.nn as nn
 import torch.nn.functional as F
 import sys
 import math
-from EEGNET import EEGNet
+try:
+    from .EEGNET import EEGNet
+    from .NeuromodulatedAttn import TransformerEncoderLayerWithAttn
+except Exception as e:
+    from NeuromodulatedAttn import TransformerEncoderLayerWithAttn
+    from EEGNET import EEGNet
 
 class CAEW(nn.Module):
-    def __init__(self, num_heads=10):
+    def __init__(self, num_heads=10, is_neuromod = False):
         super().__init__()
         # TODO: Create an automatic way of defining layer sizes
         self.t_conv1 = nn.Conv2d(1, 16, (1, 16), padding=(0, 8), bias=False)
@@ -19,8 +24,10 @@ class CAEW(nn.Module):
 
         self.t_batchnorm3 = nn.BatchNorm2d(1)
         self.dropout3 = nn.Dropout(0.25)
-
-        self.transformer = nn.TransformerEncoder(nn.TransformerEncoderLayer(480, num_heads, batch_first=True), 2)
+        if is_neuromod:
+            self.transformer = nn.TransformerEncoder(TransformerEncoderLayerWithAttn(480, num_heads, batch_first=True), 2)
+        else:
+            self.transformer = nn.TransformerEncoder(nn.TransformerEncoderLayer(480, num_heads, batch_first=True), 2)
         self.t_conv3 = nn.Conv2d(32, 1, (1, 15), bias=False)
 
     def forward(self, x):
@@ -47,8 +54,8 @@ class CAEW(nn.Module):
         return x
 
 class CAEW_EEGNet(EEGNet):
-    def __init__(self, num_heads=8):
-        super().__init__()
+    def __init__(self, num_channels=20, num_heads=8):
+        super().__init__(num_channels)
 
         self.caew = CAEW(num_heads=num_heads)
         self.caew_weights = None
@@ -80,8 +87,8 @@ class CAEW_EEGNet(EEGNet):
         
 if __name__ == "__main__":    
     from time import time
-    model = CAEW_EEGNet()
-    input_tensor = torch.randn(100, 1, 20, 500)
+    model = CAEW_EEGNet(num_channels=19)
+    input_tensor = torch.randn(100, 1, 19, 500)
     t_0 = time()
     output = model(input_tensor)
     t_0 = time()-t_0

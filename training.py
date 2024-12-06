@@ -6,9 +6,12 @@ import torch.optim as optim
 from tqdm import tqdm
 import argparse
 import numpy as np
-
+from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from modules.EEGNET import EEGNet #, ATTEEGNet
 from modules.Att_EEGNET import ATTEEGNet, Transformer_Model
+from utils.training_utils import EarlyStop
+from modules.CAEW import CAEW_EEGNet
 from sklearn.metrics import accuracy_score
 
 import os
@@ -26,6 +29,8 @@ def argparse_helper():
     args = parser.parse_args()
 
     return args.model_type, args.num_epochs, args.data_path, args.lr
+model_type, num_epochs, data_path, lr = argparse_helper()
+
 
 # Yes I am lazy, how did you know?
 save_dir = "saved_models"
@@ -35,27 +40,8 @@ last_loss = np.inf
 since_last = 0
 from random import randint
 rand_name = randint(0, 2000)
-def early_stop(model, val_loss, patience, model_name="best_model.pth"):
-    global last_loss
-    global since_last
-    model_path = os.path.join(save_dir, model_name)
-    
-    if val_loss < last_loss:
-        last_loss = val_loss
-        torch.save(model.state_dict(), model_path)
-        since_last = 0
-    else:
-        print(f"Hasn't improved in {since_last}")
-        since_last += 1
-    
-    if since_last > patience:
-        return True
-    return False
 
-
-# plt.ion()  # Turn on interactive mode
-# fig, ax = plt.subplots() 
-
+early_stop = EarlyStop(save_dir, model_type.upper()+"_"+str(rand_name))
 
 def show(model):
     ax.clear()  # Clear the current axis
@@ -73,7 +59,7 @@ def show(model):
     plt.pause(0.001)  # Pause for a short time to allow the plot to update
 
 
-model_type, num_epochs, data_path, lr = argparse_helper()
+
 
 if str(model_type).upper() == "EEGNET":
     model = EEGNet().to(device)
@@ -84,30 +70,34 @@ elif str(model_type).upper() == "ATT_EEGNET":
     model = ATTEEGNet().to(device)
 elif str(model_type).upper() == "TRANS_EEGNET":
     model = Transformer_Model().to(device)
+elif str(model_type).upper() == "CAEW":
+    model = CAEW_EEGNet().to(device)
+elif str(model_type).upper() == "TEST":
+    import torch.nn.functional as F
+    class TEST(nn.Module):
+        def __init__(self,):
+            super().__init__()
+            self.tester = nn.Linear(10_000, 1)
+        def forward(self, x):
+            x = x.view(x.size(0), -1)
+            return F.sigmoid(self.tester(x))
+    model = TEST().to(device)
 
 else:
     raise ValueError("Invalid model type")
 
-
-# TODO: Fix Dataloaders
-
-# patient = np.load(r'Leave_one_subject_out\Main\mdd_patient.py')
-
 def organize_and_label(path: str, label: int):
     data = np.load(path)
+    print(data.shape)
     tensor = torch.from_numpy(data).float()
+    # tensor = torch.from_numpy(data[:, :19, :]).float()
     labels = torch.from_numpy(np.full(data.shape[0], label))
     return tensor, labels
 
-# control = organize_and_label(r'Leave_one_subject_out\Main\mdd_control.py')
-# patient = organize_and_label(r'Leave_one_subject_out\Main\mdd_patient.py')
-# val_control = organize_and_label(r'Leave_one_subject_out\Main\mdd_control.py')
-# val_patient = organize_and_label(r'Leave_one_subject_out\Main\mdd_patient.py')
-
 datasets = []
 
-for group in [(r'Leave_one_subject_out\Main\mdd_control.npy', r'Leave_one_subject_out\Main\mdd_patient.npy'),
-              (r'Leave_one_subject_out\Validation\mdd_control.npy', r'Leave_one_subject_out\Validation\mdd_patient.npy')]:
+for group in [(r'train_data\Leave_one_subject_out\Main\mdd_control.npy',       r'train_data\Leave_one_subject_out\Main\mdd_patient.npy'),
+              (r'train_data\Leave_one_subject_out\Validation\mdd_control.npy', r'train_data\Leave_one_subject_out\Validation\mdd_patient.npy')]:
     dataset = []
     labels = []
     for idx, path in enumerate(group):
@@ -128,10 +118,6 @@ for group in [(r'Leave_one_subject_out\Main\mdd_control.npy', r'Leave_one_subjec
 batch_size = 128
 train_loader = DataLoader(dataset=datasets[0], batch_size=batch_size, shuffle=True)
 validation_loader = DataLoader(dataset=datasets[1], batch_size=batch_size, shuffle=True)
-# train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
-# validation_loader = DataLoader(dataset=val_dataset, batch_size=batch_size, shuffle=True)
-
-# exit()
 
 optimizer  = optim.Adam(model.parameters(), lr=1e-5)
 criterion = nn.BCEWithLogitsLoss()
@@ -151,32 +137,9 @@ model.register_forward_hook(save_attn_weights)
 
 import time
 import matplotlib.pyplot as plt
-from matplotlib.widgets import Button
-
-# Global variable to control the pause
-pause_flag = False
-
-def pause_button_callback(event):
-    """Callback function for the button to pause for 5 seconds."""
-    global pause_flag
-    pause_flag = not pause_flag
-
-# Set up Matplotlib figure and button
-fig, ax = plt.subplots()
-plt.subplots_adjust(bottom=0.2)
-
-# Create a button
-ax_button = plt.axes([0.4, 0.05, 0.2, 0.075])
-button = Button(ax_button, "Pause")
-button.on_clicked(pause_button_callback)
-
-# Enable interactive mode
-plt.ion()
-
-# Display the plot
-plt.show()
 
 for epoch in range(num_epochs):
+        
     model.train()
     pbar = tqdm(train_loader)
     
@@ -185,8 +148,6 @@ for epoch in range(num_epochs):
     correct = 0
     total_batches = 0
     for batch_idx, (images, labels) in enumerate(pbar):
-        if pause_flag:
-            time.sleep(5)
 
         attn_weights_list = []
 
@@ -204,7 +165,9 @@ for epoch in range(num_epochs):
         running_loss += loss.item()
         total_batches += 1
         pbar.set_description(f"Epoch {epoch+1}, Running Loss: {running_loss / (batch_idx + 1):.4f}")
-        plt.gcf().canvas.flush_events()
+        # plt.gcf().canvas.flush_events()
+    # scheduler.step(running_loss/(batch_idx+1))
+    history_train.append(running_loss/(batch_idx+1))
     model.eval()
     val_loss = 0.0
     correct = 0
@@ -229,7 +192,7 @@ for epoch in range(num_epochs):
     val_loss /= len(validation_loader)
     val_acc = correct / total
     history_val.append(val_loss)
-    if early_stop(model, val_loss, 15, model_name=f"best_model_{rand_name}.pth"):
+    if early_stop(model, val_loss, 5):
         break
 
     del preds, loss, predicted
@@ -238,9 +201,6 @@ for epoch in range(num_epochs):
     print(f"Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_acc:.4f}")
 
 
-plt.plot(history_val)
-plt.ioff()
+plt.plot(history_val, label="Validation Loss")
+plt.plot(history_train, label="Train Loss")
 plt.show()
-
-
-# torch.save(saving_model, f"{input('Model Name: ')}.pth")
