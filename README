@@ -1,1 +1,93 @@
-``
+# README
+
+## Project Overview
+This project contains four deep learning models designed for EEG data analysis. One of these models, named CAEW (Context-Aware Electrode Weighting), is a custom model that dynamically calculates electrode weights to enhance interpretability and performance.
+
+## Directory Structure
+```
+.
+├── Preprocessing/
+│   └── eeg_splitter.py
+├── utils/
+│   ├── losocv_split.py
+│   └── training_utils.py
+├── Models/
+│   ├── CAEW/
+│   └── EEGNet/
+├── Visualization/
+│   ├──gc_raw_channel.py
+│   ├── channel_representation.py
+│   ├── grad_cam.py
+│   ├── raw_eeg.py
+│   └── scatterplot.py
+│
+├── LOSOCV_training.py
+│    
+├── data/
+├── train_data/
+│   ├── Leave_one_subject_out/
+│   └── leave_one_subject_out_CV/
+├── saved_models/
+└── README.md
+```
+
+## Running the Scripts
+Below are the commands to execute the key scripts in this repository:
+
+### 1. Preprocessing: EEG Splitter
+The `eeg_splitter` script splits EEG data for downstream processing. Run it as follows:
+```bash
+python Preprocessing/eeg_splitter.py \
+    --data_file_path <path_to_input_file> \
+    --save_file_directory <output_directory> \
+    --skip <number_of_lines_to_skip> \
+    --seq_length <sequence_length>
+```
+- **Arguments:**
+  - `--data_file_path` (`-p`): Path to the input file. Currently limited to certain formats.
+  - `--save_file_directory` (`-d`): Directory to save the processed output file.
+  - `--skip`: Number of lines to skip (default: 500).
+  - `--seq_length`: Sequence length for each sample (default: 500).
+
+### 2. Leave-One-Subject-Out Cross-Validation (LOSOCV)
+The `LOSOCV.py` script trains models using the LOSOCV strategy. Example command:
+```bash
+python Scripts/LOSOCV.py \
+    --data_path <path_to_data> \
+    --model_type <model_type> \
+    --model_save_loc <save_location> \
+    --num_epochs <number_of_epochs> \
+    --batch_size <batch_size> \
+    --lr <learning_rate>
+```
+- **Arguments:**
+  - `--data_path` (`-p`): Path to the dataset.
+  - `--model_type` (`-t`): Model type. Options: `EEGNet`, `att_wavelet`, `att_EEGNet`. Default is `EEGNet`.
+  - `--model_save_loc` (`-m`): Directory to save trained models (default: `saved_models`).
+  - `--num_epochs` (`-e`): Number of epochs for training (default: 100).
+  - `--batch_size` (`-b`): Batch size for training (default: 128).
+  - `--lr`: Learning rate for training (default: 1e-5).
+
+## Models
+### 1. **CAEW (Context-Aware Electrode Weighting)**
+   - Dynamically assigns weights to EEG electrodes to emphasize the most relevant features.
+
+### 2. **EEGNet**
+   - A lightweight convolutional neural network tailored for EEG data classification.
+
+### 3. **att_wavelet**
+   - Incorporates attention mechanisms with wavelet-transformed EEG data.
+
+### 4. **att_EEGNet**
+   - Combines EEGNet with attention mechanisms for enhanced performance.
+
+## Results
+Trained models and evaluation metrics are saved in the `Results/` directory. Each model's performance is logged with details about accuracy, loss, and other metrics.
+
+## References
+If you use this project, please cite the corresponding paper or reference it appropriately.
+
+---
+
+For further details, contact [Your Email or Name Here].
+
