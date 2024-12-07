@@ -82,7 +82,5 @@ python Scripts/LOSOCV.py \
    - Combines EEGNet with attention mechanisms for enhanced performance.
 
 ## Results
-Trained models and evaluation metrics are saved in the `Results/` directory. Each model's performance is logged with details about accuracy, loss, and other metrics.
+Trained models are saved in the `saved_models/` directory. Each model's performance is logged with details about accuracy, loss, and other metrics.
 
-## References
-If you use this project, please cite the corresponding paper or reference it appropriately.
