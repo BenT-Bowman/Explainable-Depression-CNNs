@@ -11,8 +11,10 @@ def channel_rep_show(x_og, model, selected_positions):
     x = torch.tensor(x_og, dtype=torch.float32).unsqueeze(0).unsqueeze(0).cuda()
     output = model(x)
     print(output, "="*20)
-    weights = model.saved_weights.detach().cpu().numpy()
-
+    try:
+        weights = model.saved_weights.detach().cpu().numpy()
+    except:
+        weights = model.caew_weights.detach().cpu().numpy()
     weights = weights.squeeze()
     weights = weights.ravel()
 

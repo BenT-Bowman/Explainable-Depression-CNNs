@@ -54,6 +54,12 @@ def load_val_split(pairings: list, excluded_pairing: list):
 def select_indices(lst, indices):
     return [lst[i] for i in indices]
 
+def create_Dataset(dataset, labels):
+    # dataset, labels = training
+    dataset = torch.Tensor(dataset).unsqueeze(1)
+    labels = torch.Tensor(labels)
+    return TensorDataset(dataset, labels)
+
 
 def LOSOCV(path, sub_paths = ["Control", "Patient"]):
     if len(sub_paths) != 2:
@@ -73,19 +79,18 @@ def LOSOCV(path, sub_paths = ["Control", "Patient"]):
     # Initialize LeaveOneGroupOut
     logo = LeaveOneGroupOut()
 
-    def create_Dataset(dataset, labels):
-        dataset, labels = training
-        dataset = torch.Tensor(dataset)
-        labels = torch.Tensor(labels)
-        return TensorDataset(dataset, labels)
 
     # Perform LOSOCV based on unique pairings
     for train_idx, test_idx in logo.split(pairings, groups=groups):
+        # print("HEELL")
         # print(pairings[test_idx[0]])
         training, validation = load_val_split(select_indices(pairings, train_idx), pairings[test_idx[0]])
         training_dataset = create_Dataset(*training)
         validation_dataset = create_Dataset(*validation)
+
         yield training_dataset, validation_dataset
 
 if __name__ == "__main__":
-    LOSOCV(r'train_data\leave_one_subject_out_CV')
+    # print("W")
+    for thing in LOSOCV(r'train_data\leave_one_subject_out_CV'):
+        ...

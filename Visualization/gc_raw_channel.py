@@ -11,6 +11,7 @@ import sys
 import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from modules.Att_EEGNET import Transformer_Model, legacy
+from modules.CAEW import CAEW_EEGNet
 
 if __name__ == "__main__":
     #
@@ -18,7 +19,8 @@ if __name__ == "__main__":
     #
 
     np_path=r'train_data\Leave_one_subject_out\Validation\mdd_control.npy'
-    model_path = r'saved_models\12_3_legacy.pth'
+    model_path = r'saved_models\12_6_24_LOSOCV_test\fold_3_CAEW_687'
+    # model_path = r'saved_models\12_3_legacy.pth'
 
     #
     # Import Model
@@ -27,7 +29,7 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     state_dict = torch.load(model_path)
-    model = legacy(save_weights=True)
+    model = CAEW_EEGNet()
     model.load_state_dict(state_dict)
     model = model.to(device)
 

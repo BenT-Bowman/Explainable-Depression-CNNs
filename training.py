@@ -1,13 +1,11 @@
 import torch
 import torch.nn as nn
-from torch.utils.data import TensorDataset, DataLoader, random_split, ConcatDataset
+from torch.utils.data import TensorDataset, DataLoader
 import torch.optim as optim
 
 from tqdm import tqdm
 import argparse
-import numpy as np
-from torch.optim.lr_scheduler import StepLR
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+import numpy as np 
 from modules.EEGNET import EEGNet #, ATTEEGNet
 from modules.Att_EEGNET import ATTEEGNet, Transformer_Model
 from utils.training_utils import EarlyStop
@@ -22,10 +20,11 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 
 def argparse_helper():
     parser = argparse.ArgumentParser(description='Process some files.')
-    parser.add_argument('--model_type', type=str, required=False, default="EEGNet", help='Options: EEGNet, att_wavelet, att_EEGNet.')
-    parser.add_argument('--num_epochs', type=int, required=False, default=100, help='Number of epochs to train models for.')
-    parser.add_argument('--data_path',  type=str, required=True, help='Path to data.')
-    parser.add_argument('--lr', type=float,       required=False,    default=0.0001)
+    parser.add_argument('--model_type', '-t', type=str, required=False, default="EEGNet", help='Options: EEGNet, att_wavelet, att_EEGNet.')
+    parser.add_argument('--num_epochs', '-e', type=int, required=False, default=100, help='Number of epochs to train models for.')
+    parser.add_argument('--data_path', '-p',  type=str, required=True, help='Path to data.')
+    parser.add_argument('--lr', type=float,       required=False,    default=1e-5)
+    # parser.add_argument('--model_save_loc', -'m', type=float,       required=False,    default=0.0001)
     args = parser.parse_args()
 
     return args.model_type, args.num_epochs, args.data_path, args.lr
@@ -36,34 +35,13 @@ model_type, num_epochs, data_path, lr = argparse_helper()
 save_dir = "saved_models"
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
-last_loss = np.inf
-since_last = 0
 from random import randint
 rand_name = randint(0, 2000)
 
 early_stop = EarlyStop(save_dir, model_type.upper()+"_"+str(rand_name))
 
-def show(model):
-    ax.clear()  # Clear the current axis
-    gradients = []
-    for param in model.parameters():
-        gradients.append(param.grad.norm().item())
-
-    # Create a plot of the gradient norms
-    ax.plot(gradients)
-    ax.set_xlabel('Iteration')
-    ax.set_ylabel('Gradient Norm')
-    ax.set_title('Gradient Norms During Training')
-    fig.canvas.draw()  # Draw the plot
-    fig.canvas.flush_events()  # Flush the events
-    plt.pause(0.001)  # Pause for a short time to allow the plot to update
-
-
-
-
 if str(model_type).upper() == "EEGNET":
     model = EEGNet().to(device)
-    # model = TEST().to(device)
 elif str(model_type).upper() == "ATT_WAVELET":
     pass
 elif str(model_type).upper() == "ATT_EEGNET":
@@ -135,15 +113,15 @@ def save_attn_weights(module, input, output):
 
 model.register_forward_hook(save_attn_weights)
 
-import time
-import matplotlib.pyplot as plt
+# import time
+# import matplotlib.pyplot as plt
 
 for epoch in range(num_epochs):
         
     model.train()
     pbar = tqdm(train_loader)
     
-    results = []
+
     running_loss = 0.0
     correct = 0
     total_batches = 0
@@ -167,6 +145,7 @@ for epoch in range(num_epochs):
         pbar.set_description(f"Epoch {epoch+1}, Running Loss: {running_loss / (batch_idx + 1):.4f}")
         # plt.gcf().canvas.flush_events()
     # scheduler.step(running_loss/(batch_idx+1))
+    
     history_train.append(running_loss/(batch_idx+1))
     model.eval()
     val_loss = 0.0
