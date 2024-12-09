@@ -5,10 +5,13 @@ import sys
 import math
 try:
     from .EEGNET import EEGNet
+    from .DeprNet import DeprNet
     from .NeuromodulatedAttn import TransformerEncoderLayerWithAttn
 except Exception as e:
     from NeuromodulatedAttn import TransformerEncoderLayerWithAttn
     from EEGNET import EEGNet
+    from DeprNet import DeprNet
+
 
 class CAEW(nn.Module):
     def __init__(self, num_heads=10, is_neuromod = False):
@@ -85,10 +88,43 @@ class CAEW_EEGNet(EEGNet):
         else:
             return x, self.saved_features
         
+class CAEW_Alone(nn.Module):
+    def __init__(self ):
+        super().__init__()
+        self.caew = CAEW()
+        self.caew_weights = None
+
+        self.linear = nn.Linear(10_000, 1)
+    
+    def forward(self, x):
+        self.caew_weights = self.caew(x)
+        x = x*self.caew_weights
+        x = x.view(x.size(0), -1)
+        return F.sigmoid(self.linear(x))
+
+class CAEW_DeprNet(DeprNet):
+    def __init__(self, num_heads=8):
+        super().__init__()
+        self.caew = CAEW(num_heads=num_heads)
+        self.caew_weights = None
+    def forward(self, x):
+        self.caew_weights = self.caew(x)
+        x = x*self.caew_weights
+
+        x = self.model(x)
+        return F.sigmoid(x)
+        
 if __name__ == "__main__":    
     from time import time
     model = CAEW_EEGNet(num_channels=19)
     input_tensor = torch.randn(100, 1, 19, 500)
+    t_0 = time()
+    output = model(input_tensor)
+    t_0 = time()-t_0
+    print(output.shape, t_0)
+
+    model = CAEW_Alone()    
+    input_tensor = torch.randn(100, 1, 20, 500)
     t_0 = time()
     output = model(input_tensor)
     t_0 = time()-t_0

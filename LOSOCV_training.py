@@ -6,8 +6,9 @@ import torch.optim as optim
 from utils.training_utils import EarlyStop
 from modules.EEGNET import EEGNet
 from modules.Att_EEGNET import ATTEEGNet, Transformer_Model
-from modules.CAEW import CAEW_EEGNet
-from utils.losocv_split import LOSOCV
+from modules.CAEW import CAEW_EEGNet, CAEW_DeprNet, CAEW_Alone
+from utils.losocv_split import LOSOCV, LOSOSplit
+from modules.DeprNet import DeprNet, NeuromodulatedDeprNet
 
 from sklearn.metrics import accuracy_score
 from tqdm import tqdm
@@ -27,13 +28,14 @@ def argparse_helper():
     parser.add_argument('--num_epochs', '-e', type=int, required=False, default=100, help='Number of epochs to train models for.')
     parser.add_argument('--batch_size', '-b', type=int, required=False, default=128)
     parser.add_argument('--lr', type=float, required=False, default=1e-5)
+    parser.add_argument('--cross_entropy', required=False, default=False, action='store_true')
     
     args = parser.parse_args()
 
     return args.model_type, args.num_epochs, args.data_path, args.lr, args.model_save_loc, args.batch_size
 model_type, num_epochs, data_path, lr, save_dir, batch_size = argparse_helper()
 
-
+# print(type(cross_entropy))
 if not os.path.exists(save_dir):
     os.makedirs(save_dir)
 
@@ -48,6 +50,14 @@ elif str(model_type).upper() == "TRANS_EEGNET":
     model_class = Transformer_Model #().to(device)
 elif str(model_type).upper() == "CAEW":
     model_class = CAEW_EEGNet #().to(device)
+elif str(model_type).upper() == "DEPR":
+    model_class = DeprNet
+elif str(model_type).upper() == "CEPR":
+    model_class = CAEW_DeprNet
+elif str(model_type).upper() == "NEPR":
+    model_class = NeuromodulatedDeprNet
+elif str(model_type).upper() == "AEPR":
+    model_class = CAEW_Alone
 elif str(model_type).upper() == "TEST":
     import torch.nn.functional as F
     class TEST(nn.Module):
@@ -65,10 +75,10 @@ print(type(lr))
 rand_name_id = randint(0, 2000)
 accuracies = []
 
-for fold_idx, (training, validation) in enumerate(LOSOCV(path=data_path)):
+for fold_idx, (training, validation) in enumerate(LOSOSplit(path=data_path)):
     model = model_class().to(device)
     optimizer  = optim.Adam(model.parameters(), lr=lr)
-    criterion = nn.BCEWithLogitsLoss()
+    criterion = nn.BCEWithLogitsLoss() 
     early_stop = EarlyStop(save_dir, "fold_" + str(fold_idx) + "_" + model_type.upper()+"_"+str(rand_name_id))
 
     train_loader = DataLoader(dataset=training, batch_size=batch_size, shuffle=True)
@@ -122,12 +132,10 @@ for fold_idx, (training, validation) in enumerate(LOSOCV(path=data_path)):
         val_acc = correct / total
         history_val.append(val_loss)
         if early_stop(model, val_loss, val_acc, 5):
-            accuracies.append(early_stop.last_acc)
             break
         del preds, loss, predicted
         torch.cuda.empty_cache()
         print(f"Validation Loss: {val_loss:.4f}, Validation Accuracy: {val_acc:.4f}")
+
+    accuracies.append(early_stop.last_acc)
     print(f"{accuracies=}")
-    # plt.plot(history_val, label="Validation Loss")
-    # plt.plot(history_train, label="Train Loss")
-    # plt.show()

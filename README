@@ -50,7 +50,7 @@ python Preprocessing/eeg_splitter.py \
   - `--seq_length`: Sequence length for each sample (default: 500).
 
 ### 2. Leave-One-Subject-Out Cross-Validation (LOSOCV)
-The `LOSOCV.py` script trains models using the LOSOCV strategy. Example command:
+The `LOSOCV_training.py` script trains models using the LOSOCV strategy. Example command:
 ```bash
 python Scripts/LOSOCV.py \
     --data_path <path_to_data> \
