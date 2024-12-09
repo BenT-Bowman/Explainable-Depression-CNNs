@@ -67,7 +67,8 @@ python Scripts/LOSOCV.py \
   - `--num_epochs` (`-e`): Number of epochs for training (default: 100).
   - `--batch_size` (`-b`): Batch size for training (default: 128).
   - `--lr`: Learning rate for training (default: 1e-5).
-
+## Dataset
+https://figshare.com/articles/dataset/EEG_Data_New/4244171/2
 ## Models
 ### 1. **CAEW (Context-Aware Electrode Weighting)**
    - Dynamically assigns weights to EEG electrodes to emphasize the most relevant features.
