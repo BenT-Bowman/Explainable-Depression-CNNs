@@ -12,15 +12,18 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from modules.Att_EEGNET import Transformer_Model, legacy
 from modules.CAEW import CAEW_EEGNet
+from utils.losocv_split import LOSOCV, LOSOSplit
+from torch.utils.data import TensorDataset, DataLoader
+
 
 if __name__ == "__main__":
+    data_path = r"train_data\leave_one_subject_out_CV"
+    for fold_idx, (training, validation) in enumerate(LOSOSplit(path=data_path)):
+        val_loader = DataLoader(dataset=validation, batch_size=128, shuffle=True)
     #
     # Paths
     #
-
-    np_path=r'train_data\Leave_one_subject_out\Validation\mdd_control.npy'
-    model_path = r'saved_models\12_6_24_LOSOCV_test\fold_3_CAEW_687'
-    # model_path = r'saved_models\12_3_legacy.pth'
+    model_path = r'saved_models\final_models\CAEW_584\fold_10_CAEW_584'
 
     #
     # Import Model
@@ -40,11 +43,28 @@ if __name__ == "__main__":
     # Import numpy
     #
 
-    data = np.load(np_path)
-    x_og = data[randint(0, len(data))]
+            # Target Layer
+    target_layer = model.separableConv[0]
 
-    selected_positions = cr.find_selected()
+    # Import numpy
+    for batch_idx, (inputs, labels) in enumerate(val_loader):
+        print(labels[0])
+        x_og = inputs[0][0].squeeze(0).numpy()
+        print(x_og.shape)
+        selected_positions = cr.find_selected()
 
-    reeg.show_eeg(x_og)
-    cr.channel_rep_show(x_og, model, selected_positions)
-    gc.grad_cam_rep(x_og, model, target_layer)
+        # reeg.show_eeg(x_og)
+        cr.channel_rep_show(x_og, model, selected_positions)
+        # gc.grad_cam_rep(x_og, model, target_layer)
+        break
+
+    # exit()
+
+    # data = np.load(np_path)
+    # x_og = data[randint(0, len(data))]
+
+    # selected_positions = cr.find_selected()
+
+    # reeg.show_eeg(x_og)
+    # cr.channel_rep_show(x_og, model, selected_positions)
+    # gc.grad_cam_rep(x_og, model, target_layer)

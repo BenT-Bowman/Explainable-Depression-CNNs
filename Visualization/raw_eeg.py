@@ -15,6 +15,6 @@ if __name__ == "__main__":
     dataset = np.load(r'train_data\leave_one_subject_out_CV\Control\H S30 EC.npy')
     # print(dataset.shape)
     length = dataset.shape[0]
-
+    print(dataset.shape)
     eeg = dataset[randint(0, length-1), :]
     show_eeg(eeg)

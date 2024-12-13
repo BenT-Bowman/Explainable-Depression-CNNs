@@ -56,7 +56,7 @@ elif str(model_type).upper() == "CEPR":
     model_class = CAEW_DeprNet
 elif str(model_type).upper() == "NEPR":
     model_class = NeuromodulatedDeprNet
-elif str(model_type).upper() == "AEPR":
+elif str(model_type).upper() == "AAEW":
     model_class = CAEW_Alone
 elif str(model_type).upper() == "TEST":
     import torch.nn.functional as F

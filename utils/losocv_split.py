@@ -4,9 +4,6 @@ from sklearn.model_selection import LeaveOneGroupOut
 import torch
 from torch.utils.data import TensorDataset, DataLoader
 
-def label_and_load_data():
-    # TODO
-    ...
 def load_val_split(pairings: list, excluded_pairing: list):
     def sub_func(targets):
         mdd = []
@@ -75,11 +72,13 @@ def LOSOCV(path, sub_paths = ["Control", "Patient"]):
 
         yield training_dataset, validation_dataset
 
-def LOSOSplit(path, sub_paths=["Control", "Patient"], validation_size=5):
+def LOSOSplit(path, sub_paths=["Control", "Patient"], validation_size=5, num_folds=18):
     if len(sub_paths) != 2:
         raise ValueError("Sub_path length should be equal to 2")
     if validation_size < 1:
         raise ValueError("Validation size must be at least 1")
+    if num_folds < 1:
+        raise ValueError("Number of folds must be at least 1")
     
     files = []
     for sub_path in sub_paths:
@@ -91,15 +90,29 @@ def LOSOSplit(path, sub_paths=["Control", "Patient"], validation_size=5):
     files[1] = files[1][:min_length]
     pairings = list(zip(files[0], files[1]))
 
-    if validation_size > len(pairings):
+    total_pairs = len(pairings)
+    
+    # Check if validation size is larger than the number of pairs
+    if validation_size > total_pairs:
         raise ValueError("Validation size cannot be greater than the total number of pairs")
 
-    for i in range(0, len(pairings), validation_size):
-        validation = pairings[i:i+validation_size]
-        training = pairings[:i] + pairings[i+validation_size:]
-        # print(f"{validation=}\n\n")
-        # print(f"{training=}")
+    # Number of samples per fold, ensuring groups can overlap (double dip)
+    for fold in range(num_folds):
+        # Select validation set (can double dip)
+        validation_start_idx = (fold * validation_size) % total_pairs
+        validation_end_idx = (validation_start_idx + validation_size) % total_pairs
+        if validation_end_idx > validation_start_idx:
+            validation = pairings[validation_start_idx:validation_end_idx]
+        else:
+            # Wrapping around the list to allow for double dipping
+            validation = pairings[validation_start_idx:] + pairings[:validation_end_idx]
+        
+        # Remaining pairs for training (excluding the validation set)
+        training = [pair for pair in pairings if pair not in validation]
 
+        # print("\n\n\n", validation)
+
+        # Load training and validation data
         training, validation = load_val_split(training, validation)
         training_dataset = create_Dataset(*training)
         validation_dataset = create_Dataset(*validation)
@@ -109,5 +122,7 @@ def LOSOSplit(path, sub_paths=["Control", "Patient"], validation_size=5):
 
 if __name__ == "__main__":
     # print("W")
+    i=0
     for thing in LOSOSplit(r'train_data\leave_one_subject_out_CV'):
-        ...
+        print(i)
+        i+=1
