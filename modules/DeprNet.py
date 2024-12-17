@@ -16,27 +16,33 @@ class DeprNet(nn.Module):
     def __init__(self):
         super().__init__()
         self.model = nn.Sequential(
-            nn.Conv2d(1, 128, (1, 5)),
+            nn.Conv2d(1, 128, (1, 5), stride=(1, 2), padding=(0, 2)),
+            nn.LeakyReLU(),
             nn.BatchNorm2d(128),
             nn.MaxPool2d((1,2)),
-            nn.Conv2d(128, 64, (1, 5)),
+
+            nn.Conv2d(128, 64, (1, 5), stride=(1, 2), padding=(0, 2)),
             nn.LeakyReLU(),
             nn.BatchNorm2d(64),
             nn.MaxPool2d((1,2)),
-            nn.Conv2d(64, 64, (1, 5)),
+
+            nn.Conv2d(64, 64, (1, 5), stride=(1, 2), padding=(0, 2)),
             nn.LeakyReLU(),
             nn.BatchNorm2d(64),
             nn.MaxPool2d((1,2)),
-            nn.Conv2d(64, 32, (1, 3)),
+
+            nn.Conv2d(64, 32, (1, 3), stride=(1, 2), padding=(0, 2)),
             nn.LeakyReLU(),
             nn.BatchNorm2d(32),
             nn.MaxPool2d((1,2)),
-            nn.Conv2d(32, 32, (1, 2)),
+
+            nn.Conv2d(32, 32, (1, 2), stride=(1, 2), padding=(0, 2)),
             nn.LeakyReLU(),
             nn.BatchNorm2d(32),
             nn.MaxPool2d((1,2)),
             nn.Flatten(),
-            nn.Linear(32*20*13, 16),
+
+            nn.Linear(640, 16),
             nn.Linear(16, 8),
             nn.Linear(8, 1)
         )
@@ -116,7 +122,7 @@ class NeuromodulatedDeprNet(nn.Module):
         return x
     
 if __name__ == "__main__":
-    model = NeuromodulatedDeprNet()
+    model = DeprNet()
 
     tensor = torch.randn((32, 1, 20, 500))
 

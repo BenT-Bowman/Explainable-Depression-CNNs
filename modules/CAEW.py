@@ -14,41 +14,58 @@ except Exception as e:
 
 
 class CAEW(nn.Module):
-    def __init__(self, num_heads=10, is_neuromod = False):
+    def __init__(self, num_heads=10, is_neuromod=False):
         super().__init__()
-        # TODO: Create an automatic way of defining layer sizes
+
+        # Convolution Block 1
         self.t_conv1 = nn.Conv2d(1, 16, (1, 16), padding=(0, 8), bias=False)
         self.t_batchnorm1 = nn.BatchNorm2d(16)
+        self.activation1 = nn.ELU()
 
-        self.t_conv2 = nn.Conv2d(16, 32, (1, 64), padding=(0, 32), bias=False)
+        # Separable + Dilated Convolution Block 2
+        self.depthwise2 = nn.Conv2d(16, 16, (1, 8), padding=(0, 7), dilation=(1, 8), groups=16, bias=False)  # Depthwise
+        self.pointwise2 = nn.Conv2d(16, 32, (1, 1), bias=False)  # Pointwise
         self.t_batchnorm2 = nn.BatchNorm2d(32)
         self.dropout2 = nn.Dropout(0.25)
-        self.activation = nn.ELU()
+        self.activation2 = nn.ELU()
 
+        # Convolution Block 3 (Reduction)
+        self.t_conv3 = nn.Conv2d(32, 1, (1, 10), bias=False) # TODO: Consider separable stuff here too
         self.t_batchnorm3 = nn.BatchNorm2d(1)
         self.dropout3 = nn.Dropout(0.25)
+        self.activation3 = nn.ELU()
+
+        # Transformer Encoder
         if is_neuromod:
-            self.transformer = nn.TransformerEncoder(TransformerEncoderLayerWithAttn(480, num_heads, batch_first=True), 2)
+            self.transformer = nn.TransformerEncoder(
+                TransformerEncoderLayerWithAttn(320, num_heads, batch_first=True), 2
+            )
         else:
-            self.transformer = nn.TransformerEncoder(nn.TransformerEncoderLayer(480, num_heads, batch_first=True), 2)
-        self.t_conv3 = nn.Conv2d(32, 1, (1, 15), bias=False)
+            self.transformer = nn.TransformerEncoder(
+                nn.TransformerEncoderLayer(320, num_heads, batch_first=True), 2
+            )
 
     def forward(self, x):
+        # Convolution Block 1
         x = self.t_conv1(x)
         x = self.t_batchnorm1(x)
-        x = self.activation(x)
-        x = F.avg_pool2d(x, (1,4))
+        x = self.activation1(x)
+        x = F.avg_pool2d(x, (1, 4))
 
-        x = self.t_conv2(x)
+        # Separable + Dilated Convolution Block 2
+        x = self.depthwise2(x)
+        x = self.pointwise2(x)
         x = self.t_batchnorm2(x)
         x = self.dropout2(x)
-        x = self.activation(x)
-        x = F.avg_pool2d(x, (1,8))
+        x = self.activation2(x)
+        x = F.avg_pool2d(x, (1, 8))
 
         batch_size, filters, channels, seq_length = x.size()
         x = x.permute(0, 2, 1, 3).reshape(batch_size, channels, seq_length * filters)
         x = self.transformer(x)
         x = x.view(batch_size, channels, filters, seq_length).permute(0, 2, 1, 3)
+
+        # print(x.shape)
         
         x = self.t_conv3(x)
         x = self.t_batchnorm3(x)
@@ -116,16 +133,31 @@ class CAEW_DeprNet(DeprNet):
         
 if __name__ == "__main__":    
     from time import time
-    model = CAEW_EEGNet(num_channels=19)
-    input_tensor = torch.randn(100, 1, 19, 500)
-    t_0 = time()
-    output = model(input_tensor)
-    t_0 = time()-t_0
-    print(output.shape, t_0)
 
-    model = CAEW_Alone()    
+    # model = EEGNet(num_channels=20)
+    # input_tensor = torch.randn(100, 1, 20, 500)
+    # t_0 = time()
+    # output = model(input_tensor)
+    # t_0 = time()-t_0
+    # print(output.shape, t_0)
+
+    # model = CAEW_EEGNet(num_channels=20)
+    # input_tensor = torch.randn(100, 1, 20, 500)
+    # t_0 = time()
+    # output = model(input_tensor)
+    # t_0 = time()-t_0
+    # print(output.shape, t_0)
+
+    model = CAEW_EEGNet()    
     input_tensor = torch.randn(100, 1, 20, 500)
     t_0 = time()
     output = model(input_tensor)
     t_0 = time()-t_0
     print(output.shape, t_0)
+
+    # model = CAEW_DeprNet()    
+    # input_tensor = torch.randn(100, 1, 20, 500)
+    # t_0 = time()
+    # output = model(input_tensor)
+    # t_0 = time()-t_0
+    # print(output.shape, t_0)
